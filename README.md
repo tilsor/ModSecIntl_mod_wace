@@ -33,6 +33,25 @@ page](https://github.com/tilsor/ModSecIntl_wace_core/releases).
 For compilation and manual installation instructions, please see the
 [docs](https://github.com/tilsor/ModSecIntl_wace_core/tree/main/docs) directory.
 
+### Rocky Linux 8
+
+git clone repo ~/waceserver
+git clone repo ~/mod_wace
+cp ~/waceserver/wace.proto ~/mod_wace/wace.proto
+cd ~/mod_wace
+mkdir -p cmake/build
+cd cmake/build 
+cmake3 ../..
+make
+cp libgrpc_wace_client.so /usr/lib/
+ldconfig 
+apxs -Wl -Wc -cia -I/usr/include/libxml2 -I~/mod_wace -L~/mod_wace/cmake/build/ -lgrpc_wace_client ~/mod_wace/mod_wace.c 
+cp ~/mod_wace/crs_rules/* /etc/httpd/modsecurity.d/owasp-crs/rules/
+sed -i -e '$a\SecRuleRemoveById 949110' /etc/httpd/modsecurity.d/owasp-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+sed -i -e '$a\WaceServerUrl localhost:50051' /etc/httpd/conf/httpd.conf
+execstack -c /usr/lib64/httpd/modules/mod_wace.so
+systemctl restart httpd
+
 ## Licence
 Copyright (c) 2022 Tilsor SA, Universidad de la República and
 Universidad Católica del Uruguay. All rights reserved.
@@ -40,4 +59,3 @@ Universidad Católica del Uruguay. All rights reserved.
 WACE and its components are distributed under Apache Software License
 (ASL) version 2. Please see the enclosed LICENSE file for full
 details.
-

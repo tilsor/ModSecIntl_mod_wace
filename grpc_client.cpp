@@ -25,7 +25,10 @@ using waceproto::SendResponseBodyParams;
 using waceproto::SendResponseBodyResult;
 using waceproto::CheckParams;
 using waceproto::CheckResult;
-
+using waceproto::InitParams;
+using waceproto::InitResult;
+using waceproto::CloseParams;
+using waceproto::CloseResult;
 
 
 //--TODO list:
@@ -201,6 +204,38 @@ class WaceClient {
     return res;
   }
 
+  returnStatus init(char * transactID){
+    InitParams initP;
+    initP.set_transact_id(transactID);
+
+    InitResult result;
+    ClientContext context;
+    Status status= stub_->Init(&context,initP,&result);
+   
+    returnStatus res;
+    res.grpc_status_code = status.error_code();
+    res.grpc_status_message = status.error_message();
+    res.wace_status_code = result.status_code();
+   
+    return res;
+  }
+
+  returnStatus close(char * transactID){
+    CloseParams closeP;
+    closeP.set_transact_id(transactID);
+
+    CloseResult result;
+    ClientContext context;
+    Status status= stub_->Close(&context,closeP,&result);
+   
+    returnStatus res;
+    res.grpc_status_code = status.error_code();
+    res.grpc_status_message = status.error_message();
+    res.wace_status_code = result.status_code();
+   
+    return res;
+  }
+
  private:
   std::unique_ptr<waceproto::WaceProto::Stub> stub_;
 }; 
@@ -354,6 +389,46 @@ extern "C" {
 
     
 
+    return status.wace_status_code;
+  }
+
+  int Init(const char * grpcServerUrl, char * transaction_id, char * *returnMsg){
+    // Instantiates the client
+    std::string msg;
+    std::shared_ptr<grpc::Channel> chan = grpc::CreateChannel(grpcServerUrl, grpc::InsecureChannelCredentials());
+
+    WaceClient client(chan);
+    //conctenate all the char ** req_headers into one string
+    
+    returnStatus status = client.init(transaction_id);
+    
+    //Copy status message to the returnMsg param
+    *returnMsg = new char[strlen(&status.grpc_status_message[0])+1];
+    sprintf(*returnMsg,"%s", &status.grpc_status_message[0]);
+    
+    if (status.grpc_status_code != 0){//there was an error with the rpc call  
+      return -1;
+    }
+    return status.wace_status_code;
+  }
+
+  int Close(const char * grpcServerUrl, char * transaction_id, char * *returnMsg){
+    // Instantiates the client
+    std::string msg;
+    std::shared_ptr<grpc::Channel> chan = grpc::CreateChannel(grpcServerUrl, grpc::InsecureChannelCredentials());
+
+    WaceClient client(chan);
+    //conctenate all the char ** req_headers into one string
+    
+    returnStatus status = client.close(transaction_id);
+    
+    //Copy status message to the returnMsg param
+    *returnMsg = new char[strlen(&status.grpc_status_message[0])+1];
+    sprintf(*returnMsg,"%s", &status.grpc_status_message[0]);
+    
+    if (status.grpc_status_code != 0){//there was an error with the rpc call  
+      return -1;
+    }
     return status.wace_status_code;
   }
 }

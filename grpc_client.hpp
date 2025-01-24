@@ -23,6 +23,10 @@ int SendResponseBody(const char * grpcServerUrl, char * transactID, char * body,
   
 int Check(const char * grpcServerUrl, char * transactID, char * decisionID, WAFParams * wafParams, int numberWAFParams, int *blockTransaction,  char * *waceMsg, char * *returnMsg);
 
+int Init(const char * grpcServerUrl, char * transactID, char * *returnMsg);
+
+int Close(const char * grpcServerUrl, char * transactID, char * *returnMsg);
+
 #ifdef __cplusplus
 }
 #endif
