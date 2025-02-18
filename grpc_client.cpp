@@ -220,9 +220,17 @@ class WaceClient {
     return res;
   }
 
-  returnStatus close(char * transactID){
+  returnStatus close(char * transactID, std::map<std::string,std::string> metrics, int metrics_count){
     CloseParams closeP;
     closeP.set_transact_id(transactID);
+    auto metricmap = closeP.mutable_metric();
+   
+    
+    std::map<std::string, std::string>::iterator it;
+
+    for (it = metrics.begin(); it != metrics.end(); it++){
+      metricmap->insert(google::protobuf::MapPair<std::string, std::string>(it->first,it->second));
+    }
 
     CloseResult result;
     ClientContext context;
@@ -412,15 +420,23 @@ extern "C" {
     return status.wace_status_code;
   }
 
-  int Close(const char * grpcServerUrl, char * transaction_id, char * *returnMsg){
+  int Close(const char * grpcServerUrl, char * transaction_id, MetricParams * metrics, int metrics_count, char * *returnMsg){
     // Instantiates the client
     std::string msg;
     std::shared_ptr<grpc::Channel> chan = grpc::CreateChannel(grpcServerUrl, grpc::InsecureChannelCredentials());
 
     WaceClient client(chan);
     //conctenate all the char ** req_headers into one string
+
+    std::map<std::string,std::string> metricParamsMap;
+
+    if (metrics != NULL){
+      for(int i=0; i<metrics_count; i++){
+        metricParamsMap.insert(std::pair<std::string,std::string>(metrics[i].key,metrics[i].value));
+      }
+    }
     
-    returnStatus status = client.close(transaction_id);
+    returnStatus status = client.close(transaction_id, metricParamsMap, metrics_count);
     
     //Copy status message to the returnMsg param
     *returnMsg = new char[strlen(&status.grpc_status_message[0])+1];

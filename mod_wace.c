@@ -77,14 +77,52 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
     int model_count=0;
     if(strcmp(call_type, "check") != 0){//if check there is no need of the models id
         //Split of the csv value models_id into an array of models_id
-        msc_string* a = apr_table_get(msr->tx_vars,"models_id");//Get models id from ModSecurity TX.VAR
 
         //--Move the string handling to the C++ API?
-        char *models_id=a->value;
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Models id read from ModSecurity - %s",a->value);
-        
+
+        //Get models id from ModSecurity TX.VAR
+        msc_string* a = apr_table_get(msr->tx_vars,"models_id");
+        char *models_id=a->value;     
        
         if ((models_id != NULL) || strcmp(models_id, "") != 0){
+
+            // Get active model to evaluate
+
+            // int models_id_len = strlen(models_id);
+
+            // char static_models_id[512] = {'\0'};
+            // strcpy(static_models_id, models_id);
+            
+            // Returns first token
+            // char* model = strtok(apr_pstrdup(msr->mp,models_id), ",");
+
+            // char active_models_array[512] = {'\0'};
+            // char * active_models = &active_models_array;
+            // ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Model len read from ModSecurity - %d",models_id_len);
+            // char * active_models = apr_palloc(msr->mp,models_id_len+1);
+            
+            // Keep printing tokens while one of the
+            // delimiters present in str[].
+            // while (model != NULL) {
+            //     ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Model id read from ModSecurity - %s",model);
+
+            //     msc_string* m = apr_table_get(msr->tx_vars,model);
+            //     char * active = m->value;
+
+            //     if (strcmp(active,"true") == 0){
+            //         strcat(active_models,model);
+            //     }
+
+            //     model = strtok(NULL, ",");
+            //     if (model != NULL && strcmp(active,"true") == 0) {
+            //         strcat(active_models,",");
+            //     }
+            // }
+
+            // models_id = active_models;
+
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Models id read from ModSecurity - %s",models_id);
+
             StringList * ml = apr_palloc(msr->mp,sizeof(StringList));
             ml->next = NULL;
             StringList * mlHead = ml;
@@ -93,11 +131,21 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
             str = apr_pstrdup(msr->mp,models_id); // Duplicate of const char * models_id
             //split the tx.model_id line by the , and fill a list with the values
             while ((token = strsep(&str, ","))){
-                model_count++;
-                ml->value=token;
-                ml->next=apr_palloc(msr->mp,sizeof(StringList));
-                ml = ml->next;
-                ml->next=NULL;
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Model id read from ModSecurity - %s",token);
+
+                msc_string* m = apr_table_get(msr->tx_vars,token);
+                char * active = m->value;
+
+                if (strcmp(active,"true") == 0){
+                    // strcat(active_models,model);
+                // }
+
+                    model_count++;
+                    ml->value=token;
+                    ml->next=apr_palloc(msr->mp,sizeof(StringList));
+                    ml = ml->next;
+                    ml->next=NULL;
+                }
             }
             //iterate over the auxiliary list created previously and create an array of the appropiate size,
             //put the data from the list to the array
@@ -394,7 +442,92 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
 
     } else if (strcmp(call_type, "close") == 0) {
         char * status_msg;
-        int error = Close(config.grpcServerURL,transact_id,&status_msg);
+
+        int metrics_count = 11;
+        MetricParams * mparams = apr_palloc(msr->mp,sizeof(MetricParams)*metrics_count);
+
+        mparams[0].key = "Request_time";
+        mparams[1].key = "Time_phase1";
+        mparams[2].key = "Time_phase2";
+        mparams[3].key = "Time_phase3";
+        mparams[4].key = "Time_phase4";
+        mparams[5].key = "Time_phase5";
+        mparams[6].key = "Time_storage_read";
+        mparams[7].key = "Time_storage_write";
+        mparams[8].key = "Time_logging";
+        mparams[9].key = "Time_gc";
+        mparams[10].key = "Response_code";
+
+
+        // PERF_ALL
+        // char static_metrics[2048] = {'\0'}; // USE var->value_len !!!
+        char * static_metrics = apr_palloc(msr->mp,var->value_len);
+        strcpy(static_metrics, var->value);
+        // Returns first token
+        // char* metric = strtok(static_metrics, ", ");
+
+        char *metric, *metrics;
+        metrics = apr_pstrdup(msr->mp,var->value); // Duplicate of const char * var->value
+            
+        int index_mparams = 0;
+        
+        // Keep printing tokens while one of the
+        // delimiters present in str[].
+        while ((metric = strsep(&metrics, ",")) && index_mparams<metrics_count) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Metric read from ModSecurity - %s",metric);
+
+            int value;
+            char* key = apr_palloc(msr->mp,strlen(metric));
+
+            if (sscanf(metric, "%[^=]=%d", key, &value) == 2) {
+                char* send_value = apr_palloc(msr->mp,strlen(metric));
+                sprintf(send_value, "%d", value);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Metric read from ModSecurity - %s",send_value);
+                mparams[index_mparams].value = send_value;
+            }
+
+            index_mparams++;
+            // metric = strtok(NULL, ", ");
+        }
+        // END PERF_ALL
+
+        
+        // Converting integer to string using sprintf
+        // char aux[15];
+        // sprintf(aux, "%ld", apr_time_usec(msr->request_time));
+        // mparams[0].value = &aux;
+        // char aux1[15];
+        // sprintf(aux1, "%ld", apr_time_usec(msr->time_phase1));
+        // mparams[1].value = &aux1;
+        // char aux2[15];
+        // sprintf(aux2, "%ld", apr_time_usec(msr->time_phase2));
+        // mparams[2].value = &aux2;
+        // char aux3[15];
+        // sprintf(aux3, "%ld", apr_time_usec(msr->time_phase3));
+        // mparams[3].value = &aux3;
+        // char aux4[15];
+        // sprintf(aux4, "%ld", apr_time_usec(msr->time_phase4));
+        // mparams[4].value = &aux4;
+        // char aux5[15];
+        // sprintf(aux5, "%ld", apr_time_usec(msr->time_phase5));
+        // mparams[5].value = &aux5;
+        // char aux6[15];
+        // sprintf(aux6, "%ld", apr_time_usec(msr->time_storage_read));
+        // mparams[6].value = &aux6;
+        // char aux7[15];
+        // sprintf(aux7, "%ld", apr_time_usec(msr->time_storage_write));
+        // mparams[7].value = &aux7;
+        // char aux8[15];
+        // sprintf(aux8, "%ld", apr_time_usec(msr->time_logging));
+        // mparams[8].value = &aux8;
+        // char aux9[15];
+        // sprintf(aux9, "%ld", apr_time_usec(msr->time_gc));
+        // mparams[9].value = &aux9;
+        char aux10[15];
+        sprintf(aux10, "%d", msr->response_status);
+        mparams[10].value = &aux10;
+
+        int error = Close(config.grpcServerURL,transact_id,mparams,metrics_count,&status_msg);
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace_time[%s]:start,close,grpc,%"APR_TIME_T_FMT,transact_id,apr_time_now());
         return 1;
 

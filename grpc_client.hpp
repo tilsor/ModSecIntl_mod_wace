@@ -9,6 +9,11 @@ typedef struct WAFParamsStruct{
     char * value;
 } WAFParams;
 
+typedef struct MetricParamsStruct{
+    char * key;
+    char * value;
+} MetricParams;
+
 int SendRequest(const char * grpcServerUrl, char * transaction_id,  char * req_line, char ** req_headers,int req_header_count, char * body, char ** models_id, int number_of_models, char * *returnMsg);
 
 int SendReqLineAndHeaders(const char * grpcServerUrl, char * transaction_id, char * req_line, char ** req_headers,int req_header_count, char ** models_id, int number_of_models, char * *returnMsg);
@@ -25,7 +30,7 @@ int Check(const char * grpcServerUrl, char * transactID, char * decisionID, WAFP
 
 int Init(const char * grpcServerUrl, char * transactID, char * *returnMsg);
 
-int Close(const char * grpcServerUrl, char * transactID, char * *returnMsg);
+int Close(const char * grpcServerUrl, char * transactID, MetricParams * metrics, int metrics_count, char * *returnMsg);
 
 #ifdef __cplusplus
 }
