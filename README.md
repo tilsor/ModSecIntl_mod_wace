@@ -35,6 +35,7 @@ For compilation and manual installation instructions, please see the
 
 ### Rocky Linux 8
 
+```
 git clone repo ~/waceserver
 git clone repo ~/mod_wace
 cp ~/waceserver/wace.proto ~/mod_wace/wace.proto
@@ -51,6 +52,7 @@ sed -i -e '$a\SecRuleRemoveById 949110' /etc/httpd/modsecurity.d/owasp-crs/rules
 sed -i -e '$a\WaceServerUrl localhost:50051' /etc/httpd/conf/httpd.conf
 execstack -c /usr/lib64/httpd/modules/mod_wace.so
 systemctl restart httpd
+```
 
 ## Licence
 Copyright (c) 2022 Tilsor SA, Universidad de la República and
