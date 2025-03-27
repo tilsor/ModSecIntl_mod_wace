@@ -35,9 +35,10 @@ For compilation and manual installation instructions, please see the
 
 ### Rocky Linux 8
 
+Install locally
 ```
-git clone repo ~/waceserver
-git clone repo ~/mod_wace
+git clone https://github.com/tiroa-tilsor/ModSecIntl_wace_core.git ~/waceserver
+git clone https://github.com/tiroa-tilsor/ModSecIntl_mod_wace.git ~/mod_wace
 cp ~/waceserver/wace.proto ~/mod_wace/wace.proto
 cd ~/mod_wace
 mkdir -p cmake/build
@@ -52,6 +53,16 @@ sed -i -e '$a\SecRuleRemoveById 949110' /etc/httpd/modsecurity.d/owasp-crs/rules
 sed -i -e '$a\WaceServerUrl localhost:50051' /etc/httpd/conf/httpd.conf
 execstack -c /usr/lib64/httpd/modules/mod_wace.so
 systemctl restart httpd
+```
+
+Build RPM from source
+```
+cd ~/mod_wace
+rsync -av --progress . mod_wace-{version} --exclude .git
+tar -czvf {user}/rpmbuild/SOURCES/mod_wace-{version}.tar.gz ./mod_wace-{version}/
+cd mod_wace-{version}/
+cp ~/waceserver/wace.proto {user}/rpmbuild/SOURCES
+rpmbuild -ba mod_wace.spec
 ```
 
 ## Licence
