@@ -413,18 +413,17 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
         int metrics_count = 11;
         MetricParams * mparams = apr_palloc(msr->mp,sizeof(MetricParams)*metrics_count);
 
-        mparams[0].key = "WebAppId";
-        mparams[1].key = "Request_time";
-        mparams[2].key = "Time_phase1";
-        mparams[3].key = "Time_phase2";
-        mparams[4].key = "Time_phase3";
-        mparams[5].key = "Time_phase4";
-        mparams[6].key = "Time_phase5";
-        mparams[7].key = "Time_storage_read";
-        mparams[8].key = "Time_storage_write";
-        mparams[9].key = "Time_logging";
-        mparams[10].key = "Time_gc";
-        mparams[11].key = "Response_code";
+        mparams[0].key = "Request_time";
+        mparams[1].key = "Time_phase1";
+        mparams[2].key = "Time_phase2";
+        mparams[3].key = "Time_phase3";
+        mparams[4].key = "Time_phase4";
+        mparams[5].key = "Time_phase5";
+        mparams[6].key = "Time_storage_read";
+        mparams[7].key = "Time_storage_write";
+        mparams[8].key = "Time_logging";
+        mparams[9].key = "Time_gc";
+        mparams[10].key = "Response_code";
 
 
         // PERF_ALL
