@@ -77,14 +77,19 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
     int model_count=0;
     if(strcmp(call_type, "check") != 0){//if check there is no need of the models id
         //Split of the csv value models_id into an array of models_id
-        msc_string* a = apr_table_get(msr->tx_vars,"models_id");//Get models id from ModSecurity TX.VAR
 
         //--Move the string handling to the C++ API?
-        char *models_id=a->value;
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Models id read from ModSecurity - %s",a->value);
-        
+
+        //Get models id from ModSecurity TX.VAR
+        msc_string* a = apr_table_get(msr->tx_vars,"models_id");
+        char *models_id=a->value;     
        
         if ((models_id != NULL) || strcmp(models_id, "") != 0){
+
+            // Get active model to evaluate
+
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Models id read from ModSecurity - %s",models_id);
+
             StringList * ml = apr_palloc(msr->mp,sizeof(StringList));
             ml->next = NULL;
             StringList * mlHead = ml;
@@ -93,11 +98,21 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
             str = apr_pstrdup(msr->mp,models_id); // Duplicate of const char * models_id
             //split the tx.model_id line by the , and fill a list with the values
             while ((token = strsep(&str, ","))){
-                model_count++;
-                ml->value=token;
-                ml->next=apr_palloc(msr->mp,sizeof(StringList));
-                ml = ml->next;
-                ml->next=NULL;
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Model id read from ModSecurity - %s",token);
+
+                msc_string* m = apr_table_get(msr->tx_vars,token);
+                char * active = m->value;
+
+                if (strcmp(active,"true") == 0){
+                    // strcat(active_models,model);
+                // }
+
+                    model_count++;
+                    ml->value=token;
+                    ml->next=apr_palloc(msr->mp,sizeof(StringList));
+                    ml = ml->next;
+                    ml->next=NULL;
+                }
             }
             //iterate over the auxiliary list created previously and create an array of the appropiate size,
             //put the data from the list to the array
@@ -124,15 +139,17 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
         hl->next = NULL;
         StringList * hlHead = hl;
         int header_count=0;
-
-        //converting the request headers form apr table to an auxiliary list
-        int apr_table_to_array(void * rec, const char* key,const char* value){
-            char * header = apr_palloc(msr->mp,strlen(key)+strlen(value)+strlen(": ")+1);//+1 for the \0
+        //converting the response headers form apr table to an auxiliary list
+        const apr_array_header_t *arr = apr_table_elts(msr->request_headers);
+        apr_table_entry_t *entries = (apr_table_entry_t *)arr->elts;
+        for (int i = 0; i < arr->nelts; i++) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"Key: %s, Value: %s\n", entries[i].key, entries[i].val);
+            char * header = apr_palloc(msr->mp,strlen(entries[i].key)+strlen(entries[i].val)+strlen(": ")+1);//+1 for the \0
             if(header != NULL){
                 header[0] = '\0';   // ensures the memory is an empty string
-                strcat(header,key);
+                strcat(header,entries[i].key);
                 strcat(header,": ");
-                strcat(header,value);
+                strcat(header,entries[i].val);
                 header_count++;
                 hl->value=header;
                 hl->next=apr_palloc(msr->mp,sizeof(StringList));
@@ -143,10 +160,7 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
                 *(const char **)apr_array_push(msr->alerts) = apr_pstrdup(msr->mp, "mod_wace: Error parsing request headers.\n");
                 ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, msr->r,"mod_wace: Error parsing request headers"); 
             }
-            return 1; 
         }
-        //reading of the request headers from the apr table and loading inside the auxiliary list
-        apr_table_do(apr_table_to_array,NULL,msr->request_headers,NULL);
         
         //Creating the wace_req_headers array from the list of headers
         hl = hlHead;
@@ -220,27 +234,27 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
         StringList * hlHead = hl;
         int header_count=0;
         //converting the response headers form apr table to an auxiliary list
-        int apr_table_to_array(void * rec, const char* key,const char* value){
-            char * header = apr_palloc(msr->mp,strlen(key)+strlen(value)+strlen(": ")+1);
+        const apr_array_header_t *arr = apr_table_elts(msr->request_headers);
+        apr_table_entry_t *entries = (apr_table_entry_t *)arr->elts;
+        for (int i = 0; i < arr->nelts; i++) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"Key: %s, Value: %s\n", entries[i].key, entries[i].val);
+            char * header = apr_palloc(msr->mp,strlen(entries[i].key)+strlen(entries[i].val)+strlen(": ")+1);//+1 for the \0
             if(header != NULL){
                 header[0] = '\0';   // ensures the memory is an empty string
-                strcat(header,key);
+                strcat(header,entries[i].key);
                 strcat(header,": ");
-                strcat(header,value);
+                strcat(header,entries[i].val);
                 header_count++;
                 hl->value=header;
-                hl->next=malloc(sizeof(StringList));
+                hl->next=apr_palloc(msr->mp,sizeof(StringList));
                 hl = hl->next;
                 hl->next=NULL;
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace: Response Header -> %s",header);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace: Request Header -> %s",header);
             } else {
                 *(const char **)apr_array_push(msr->alerts) = apr_pstrdup(msr->mp, "mod_wace: Error parsing request headers.\n");
-                ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, msr->r,"mod_wace: Error parsing response headers");
+                ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, msr->r,"mod_wace: Error parsing request headers"); 
             }
-            return 1; 
         }
-        //reading of the request headers from the apr table and loading inside the array wace_req_headers
-        apr_table_do(apr_table_to_array,NULL,msr->response_headers,NULL);
         //Creating the wace_req_headers array from the list of headers
         hl = hlHead;
         wace_resp_headers=apr_palloc(msr->mp,sizeof(char *)*header_count);
@@ -296,15 +310,17 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
         hl->next = NULL;
         StringList * hlHead = hl;
         int header_count=0;
-
-        //converting the request headers form apr table to an auxiliary list
-        int apr_table_to_array(void * rec, const char* key,const char* value){
-            char * header = apr_palloc(msr->mp,strlen(key)+strlen(value)+strlen(": ")+1);//+1 for the \0
+        //converting the response headers form apr table to an auxiliary list
+        const apr_array_header_t *arr = apr_table_elts(msr->request_headers);
+        apr_table_entry_t *entries = (apr_table_entry_t *)arr->elts;
+        for (int i = 0; i < arr->nelts; i++) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"Key: %s, Value: %s\n", entries[i].key, entries[i].val);
+            char * header = apr_palloc(msr->mp,strlen(entries[i].key)+strlen(entries[i].val)+strlen(": ")+1);//+1 for the \0
             if(header != NULL){
                 header[0] = '\0';   // ensures the memory is an empty string
-                strcat(header,key);
+                strcat(header,entries[i].key);
                 strcat(header,": ");
-                strcat(header,value);
+                strcat(header,entries[i].val);
                 header_count++;
                 hl->value=header;
                 hl->next=apr_palloc(msr->mp,sizeof(StringList));
@@ -315,11 +331,7 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
                 *(const char **)apr_array_push(msr->alerts) = apr_pstrdup(msr->mp, "mod_wace: Error parsing request headers.\n");
                 ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, msr->r,"mod_wace: Error parsing request headers"); 
             }
-            return 1; 
         }
-        //reading of the request headers from the apr table and loading inside the auxiliary list
-        apr_table_do(apr_table_to_array,NULL,msr->request_headers,NULL);
-        
         //Creating the wace_req_headers array from the list of headers
         hl = hlHead;
         wace_req_headers=apr_palloc(msr->mp,sizeof(char *)*header_count);
@@ -365,9 +377,9 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
         //TODO: See how to pass the WAFParams from the CRS into this function call
         //array of WAFParams
         WAFParams * wparams = apr_palloc(msr->mp,sizeof(WAFParams)*2);
-        wparams[0].key = "anomalyscore";
+        wparams[0].key = "inbound_blocking";
         wparams[0].value = anomaly_score->value;
-        wparams[1].key = "inboundthreshold";
+        wparams[1].key = "inbound_threshold";
         wparams[1].value = inbound_score->value;
 
         //return values of check call
@@ -389,6 +401,66 @@ static int wace_exec(modsec_rec *msr, msre_rule *rule, msre_var *var, char **err
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace_time[%s]:end,check,%,%"APR_TIME_T_FMT",%"APR_TIME_T_FMT,transact_id,apr_time_now(),msr->request_time);
             return 0; //Match the rule on error ?.
         }
+    } else if (strcmp(call_type, "init") == 0) {
+        char * status_msg;
+        int error = Init(config.grpcServerURL,transact_id,&status_msg);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace_time[%s]:start,init,grpc,%"APR_TIME_T_FMT,transact_id,apr_time_now());
+        return 1;
+
+    } else if (strcmp(call_type, "close") == 0) {
+        char * status_msg;
+
+        int metrics_count = 11;
+        MetricParams * mparams = apr_palloc(msr->mp,sizeof(MetricParams)*metrics_count);
+
+        mparams[0].key = "Request_time";
+        mparams[1].key = "Time_phase1";
+        mparams[2].key = "Time_phase2";
+        mparams[3].key = "Time_phase3";
+        mparams[4].key = "Time_phase4";
+        mparams[5].key = "Time_phase5";
+        mparams[6].key = "Time_storage_read";
+        mparams[7].key = "Time_storage_write";
+        mparams[8].key = "Time_logging";
+        mparams[9].key = "Time_gc";
+        mparams[10].key = "Response_code";
+
+
+        // PERF_ALL
+
+        char *metric, *metrics;
+        metrics = apr_pstrdup(msr->mp,var->value); // Duplicate of const char * var->value
+            
+        int index_mparams = 0;
+        
+        // Keep printing tokens while one of the
+        // delimiters present in str[].
+        while ((metric = strsep(&metrics, ",")) && index_mparams<metrics_count) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Metric read from ModSecurity - %s",metric);
+
+            int value;
+            char* key = apr_palloc(msr->mp,strlen(metric));
+
+            if (sscanf(metric, "%[^=]=%d", key, &value) == 2) {
+                char* send_value = apr_palloc(msr->mp,strlen(metric));
+                sprintf(send_value, "%d", value);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0,msr->r,"mod_wace: Metric read from ModSecurity - %s",send_value);
+                mparams[index_mparams].value = send_value;
+            }
+
+            index_mparams++;
+            // metric = strtok(NULL, ", ");
+        }
+        // END PERF_ALL
+
+        char aux10[15];
+        sprintf(aux10, "%d", msr->response_status);
+        mparams[10].value = &aux10;
+
+        int error = Close(config.grpcServerURL,transact_id,mparams,metrics_count,&status_msg);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG | APLOG_NOERRNO, 0, msr->r,"mod_wace_time[%s]:start,close,grpc,%"APR_TIME_T_FMT,transact_id,apr_time_now());
+        return 1;
+
     } else {
         *error_msg = apr_psprintf(rule->ruleset->mp, "mod_wace: Unknown parameter passed to the wace operator, a valid parameter is needed.");
         ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, msr->r,"mod_wace: Unknown parameter passed to the wace operator, a valid parameter is needed.");
