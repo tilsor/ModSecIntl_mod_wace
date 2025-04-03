@@ -35,8 +35,8 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 %build
 %define __cmake /usr/bin/cmake3
-cmake -DBUILD_SHARED_LIBS=OFF
-cmake_build
+%cmake -DBUILD_SHARED_LIBS=OFF
+%cmake_build
 apxs -c -I/usr/include/libxml2 -L%{__cmake_builddir} -lgrpc_wace_client  %{_builddir}/{{{ git_dir_pack }}}/mod_wace.c
 
 %install
