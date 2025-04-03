@@ -33,7 +33,7 @@ apache module that communicates mod_security with the WACE core.
 %define __cmake /usr/bin/cmake3
 %cmake -DBUILD_SHARED_LIBS=OFF
 %cmake_build
-apxs -c -I/usr/include/libxml2 -L%{__cmake_builddir} -lgrpc_wace_client  %{_builddir}/%{name}-%{version}/mod_wace.c
+apxs -c -I/usr/include/libxml2 -L%{__cmake_builddir} -lgrpc_wace_client  %{_builddir}/{{{ git_dir_pack }}}/mod_wace.c
 
 %install
 install -Dp -m0755 %{__cmake_builddir}/libgrpc_wace_client.so  %{buildroot}%{_libdir}/libgrpc_wace_client.so
