@@ -15,7 +15,7 @@ Source0:    {{{ git_dir_pack }}}
 Source1:        wace.proto
 
 # glibc-static and libstdc++-static needs "powertools" repo enabled
-BuildRequires: gcc, gcc-c++, cmake3 >= 3.15, httpd-devel, libxml2-devel, git, pcre-devel, glibc-static, libstdc++-static
+BuildRequires: gcc, gcc-c++, cmake3 >= 3.15, httpd-devel, libxml2-devel, git, pcre-devel, glibc-static, libstdc++-static, protobuf-devel
 Requires: mod_security < 3, mod_security_crs >= 3
 AutoReqProv: no
 
@@ -28,12 +28,16 @@ apache module that communicates mod_security with the WACE core.
 
 %prep
 %autosetup
+wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.2
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 %build
 %define __cmake /usr/bin/cmake3
-make
-%cmake -DBUILD_SHARED_LIBS=OFF
-%cmake_build
+cmake -DBUILD_SHARED_LIBS=OFF
+cmake_build
 apxs -c -I/usr/include/libxml2 -L%{__cmake_builddir} -lgrpc_wace_client  %{_builddir}/{{{ git_dir_pack }}}/mod_wace.c
 
 %install
