@@ -10,8 +10,8 @@ License:        Apache v2.0
 URL:            https://github.com/tilsor/ModSecIntl_mod_wace
 Source0:    {{{ git_dir_pack }}}
 # TODO: make sure this is accessible:
-# Source1:        https://raw.githubusercontent.com/tilsor/ModSecIntl_wace_core/main/wace.proto
-Source1:        wace.proto
+Source1:        https://raw.githubusercontent.com/tilsor/ModSecIntl_wace_server/main/wace.proto
+# Source1:        wace.proto
 
 # glibc-static and libstdc++-static needs "powertools" repo enabled
 BuildRequires: gcc, gcc-c++, cmake3 >= 3.15, httpd-devel, libxml2-devel, git, pcre-devel, glibc-static, libstdc++-static, protobuf-devel
@@ -35,7 +35,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 %build
 %define __cmake /usr/bin/cmake3
-%cmake -DBUILD_SHARED_LIBS=OFF
+%cmake --trace -DBUILD_SHARED_LIBS=OFF
 %cmake_build
 apxs -c -I/usr/include/libxml2 -L%{__cmake_builddir} -lgrpc_wace_client  %{_builddir}/{{{ git_dir_pack }}}/mod_wace.c
 
