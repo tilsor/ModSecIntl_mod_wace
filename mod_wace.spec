@@ -8,7 +8,8 @@ Summary:        An apache module for adding machine learning capabilities to WAF
 
 License:        Apache v2.0
 URL:            https://github.com/tilsor/ModSecIntl_mod_wace
-Source0:        %{name}-%{version}.tar.gz
+# Source0:        %{name}-%{version}.tar.gz
+Source0:    {{{ git_dir_pack }}}
 # TODO: make sure this is accessible:
 # Source1:        https://raw.githubusercontent.com/tilsor/ModSecIntl_wace_core/main/wace.proto
 Source1:        wace.proto
